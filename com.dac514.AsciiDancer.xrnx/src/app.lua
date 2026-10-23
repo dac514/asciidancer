@@ -14,9 +14,6 @@
 
 local App = {}
 
----@class AsciiDancerPreferences : renoise.Document.DocumentNode
----@field greeting renoise.Document.ObservableString
-
 App.name = "ASCII Dancer"
 App.menu_entry = "Main Menu:Tools:" .. App.name .. "..."
 App.keybinding = "Global:Tools:Show " .. App.name
@@ -45,11 +42,6 @@ end
 ---@param text string
 function App.log(text)
   App.log_sink("app", text)
-end
-
----@return AsciiDancerPreferences
-function App.prefs()
-  return renoise.tool().preferences --[[@as AsciiDancerPreferences]]
 end
 
 ---Wrap a callback so that errors are logged before being re-raised.
@@ -132,6 +124,19 @@ function reg.timer(fn, interval_ms)
   table.insert(reg.timers, fn)
 end
 
+---Remove a timer registered with `reg.timer` (for timers that stop themselves).
+---@param fn function
+function reg.remove_timer(fn)
+  local tool = renoise.tool()
+  if tool:has_timer(fn) then
+    tool:remove_timer(fn)
+  end
+  local i = table.find(reg.timers, fn)
+  if i then
+    table.remove(reg.timers, i --[[@as integer]])
+  end
+end
+
 -- Deferral -------------------------------------------------------------------
 
 ---@type fun()[]
@@ -192,10 +197,21 @@ function App.show_dialog()
     existing.dialog:show()
     return
   end
+  App.dialogs.main = nil -- a closed dialog's timer sees this and retires itself
   local ui = require "src.ui"
-  local vb, root = ui.build(App)
+  local vb, root, component = ui.build(App)
   local dialog = renoise.app():show_custom_dialog(App.name, root)
   App.register_dialog("main", dialog, vb, root)
+  if component then
+    component.start(dialog)
+  end
+end
+
+---Snapshot of the running dancer for `just eval`, or nil when no dialog is animating.
+---@return table?
+function App.dancer_state()
+  local component = require("src.dancer_view").current
+  return component and component.state() or nil
 end
 
 -- Lifecycle ------------------------------------------------------------------

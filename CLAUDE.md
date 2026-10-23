@@ -27,6 +27,7 @@ first line; exit codes: 0 ok, 1 remote/Lua error, 2 usage, 3 cannot connect,
 |---|---|
 | `just doctor` | check stylua, lua-language-server, just, Renoise folders, the bridge |
 | `just check` | `stylua --check .` + `lua-language-server --check .` (+ Renoise's own parser via the bridge when reachable) |
+| `just test` | `luajit tests/dancer_test.lua`: unit tests for the pure dancer modules (no Renoise needed); `--show <move>` prints a move's frames |
 | `just fmt` | format all Lua in place |
 | `just install` | install into Renoise through OSC `install_tool` (Renoise copies and loads the bundle); falls back to a symlink/copy that needs *Tools > Reload All Tools* once |
 | `just reload` | **full reload** (default): zip the bundle (with `dev/`) and `install_tool` it through OSC; fresh Lua state, new `boot_id`, about a second |
@@ -44,11 +45,11 @@ first line; exit codes: 0 ok, 1 remote/Lua error, 2 usage, 3 cannot connect,
 ### The development loop
 
 1. Edit `src/*.lua` (behaviour and UI), `main.lua` (entry), `manifest.xml`, or `dev/*` (bridge).
-2. `just check`. Fix everything it reports before reloading.
+2. `just check` (and `just test` when `src/dancer*.lua` changed). Fix everything it reports before reloading.
 3. `just reload` (full, any file). `just reload-soft` is faster for `src/`-only edits but keeps old
    closures registered outside `App.reg` and does not touch `main.lua`, `manifest.xml` or `dev/`.
 4. Verify inside the running Renoise: `just eval 'APP.show_dialog()'`, `just views`,
-   `just eval 'dev.set("greeting", "x")'`, `just log`, `just screenshot`. Do not report a GUI
+   `just eval 'return APP.dancer_state()'`, `just log`, `just screenshot`. Do not report a GUI
    change as working until `views` (and, for layout, a screenshot) shows it.
 5. `just check` again, then commit.
 
@@ -104,9 +105,14 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 .github/workflows/ci.yml      stylua --check, lua-language-server --check, package
 .github/workflows/release.yml tag v* -> GitHub release with the .xrnx attached
 <Id>.xrnx/manifest.xml        Id (== folder name), ApiVersion 6.2, Version like 1.02 (no semver)
-<Id>.xrnx/main.lua            thin entry: package.path, preferences, APP = require "src.app", APP.start(), dev bridge
+<Id>.xrnx/main.lua            thin entry: package.path, APP = require "src.app", APP.start(), dev bridge
 <Id>.xrnx/src/app.lua         App.start/stop, App.reg (menu/key/notifier/timer), App.register_dialog, App.guard, App.defer
-<Id>.xrnx/src/ui.lua          ViewBuilder dialog; returns (vb, root)
+<Id>.xrnx/src/ui.lua          ViewBuilder dialog; returns (vb, root, component)
+<Id>.xrnx/src/dancer_art.lua  pure data: dancer parts, moves, accents + compile()/validate()
+<Id>.xrnx/src/dancer.lua      pure engine: tempo folding, choreography, frame compositor, frame-rate clamp
+<Id>.xrnx/src/song_probe.lua  per-tick song reader: transport + note-ons on newly reached lines
+<Id>.xrnx/src/dancer_view.lua the dancer GUI component (canvas backdrop + mono text) and its timer
+tests/dancer_test.lua         luajit tests for the pure modules (`just test`)
 <Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua); never shipped
 ```
 
@@ -124,6 +130,8 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
   That is what makes `reload`, `views` and `dev.view` work.
 - Wrap callbacks that Renoise invokes with `App.guard(fn)` so errors reach `just log`.
 - Always `require "src.x"` (the `src.` prefix is what the soft reload clears).
+- `src/dancer_art.lua` and `src/dancer.lua` stay pure Lua (no `renoise.*`, no Renoise stdlib
+  additions such as `table.find`) so `just test` can run them under plain LuaJIT.
 - Never `local print = print` at module scope (the bridge hooks the global `print`).
 - Never block Renoise's main thread: no `client:receive()`, `client:close()` or
   `server:wait()` inside socket callbacks, no busy loops; long jobs use coroutines
@@ -134,7 +142,7 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
   `sequencer.pattern_sequence_observable`, `phrase_mappings_observable`) fire *during* the edit:
   the list is updated, dependents (pattern tracks, sequence, selection) are not, and they also
   fire on undo/redo. Inside them never edit the song; observe the dependent object if it has an
-  observable, else `App.defer(fn)`. Demo: the tracks row in `src/ui.lua`.
+  observable, else `App.defer(fn)`.
 - ViewBuilder constructor tables accept only documented fields; a typo such as
   `vb:text { margin = 1 }` crashes at runtime and LuaLS cannot catch it.
 - Manifest: `Id` must equal the folder name without `.xrnx`; `Version` is a

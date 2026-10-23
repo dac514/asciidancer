@@ -25,14 +25,6 @@ package.path = bundle_path .. "?.lua;" .. package.path
 -- an external editor and like alt-tab reloads.
 _AUTO_RELOAD_DEBUG = false
 
--- Preferences: created once per tool load; Renoise persists them as
--- preferences.xml inside the tool folder.
-if not renoise.tool().preferences then
-  renoise.tool().preferences = renoise.Document.create "AsciiDancerPreferences" {
-    greeting = "Hello from ASCII Dancer",
-  }
-end
-
 -- The application module is a deliberate global so the dev bridge can reach it
 -- (`APP.dialogs`, `APP.stop()`, `APP.start()`).
 APP = require "src.app"
