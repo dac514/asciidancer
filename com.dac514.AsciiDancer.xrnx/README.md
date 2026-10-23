@@ -1,15 +1,15 @@
-# My Tool
+# ASCII Dancer
 
 A Renoise tool built from the [ReSlop](https://github.com/dac514/reslop) starter kit.
 
 ## What it does
 
-Adds **Tools > My Tool...** to the main menu (and a bindable shortcut under
-*Global > Tools > Show My Tool*). The dialog shows the current song name, BPM
+Adds **Tools > ASCII Dancer...** to the main menu (and a bindable shortcut under
+*Global > Tools > Show ASCII Dancer*). The dialog shows the current song name, BPM
 and track count, keeps a greeting in the tool preferences, and prints it to the
 status bar.
 
 ## Install
 
-Drag `com.example.MyTool.xrnx` onto Renoise, or copy this folder into the
+Drag `com.dac514.AsciiDancer.xrnx` onto Renoise, or copy this folder into the
 `Scripts/Tools` folder of your Renoise preferences directory.

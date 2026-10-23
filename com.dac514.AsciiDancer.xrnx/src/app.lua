@@ -14,10 +14,10 @@
 
 local App = {}
 
----@class MyToolPreferences : renoise.Document.DocumentNode
+---@class AsciiDancerPreferences : renoise.Document.DocumentNode
 ---@field greeting renoise.Document.ObservableString
 
-App.name = "My Tool"
+App.name = "ASCII Dancer"
 App.menu_entry = "Main Menu:Tools:" .. App.name .. "..."
 App.keybinding = "Global:Tools:Show " .. App.name
 
@@ -47,9 +47,9 @@ function App.log(text)
   App.log_sink("app", text)
 end
 
----@return MyToolPreferences
+---@return AsciiDancerPreferences
 function App.prefs()
-  return renoise.tool().preferences --[[@as MyToolPreferences]]
+  return renoise.tool().preferences --[[@as AsciiDancerPreferences]]
 end
 
 ---Wrap a callback so that errors are logged before being re-raised.
