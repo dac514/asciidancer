@@ -1,124 +1,79 @@
-# ReSlop
+# ASCII Dancer
 
-Build Renoise tools with a coding assistant doing the typing.
-
-Renoise tools are small Lua scripts (`.xrnx` files) that add menus, dialogs and
-new tricks to [Renoise](https://www.renoise.com). ReSlop is a starter kit for
-making them. You get a little tool that already works, the complete Renoise API
-reference in a form your editor and [Claude Code](https://claude.com/claude-code)
-can read, and a bridge that lets Claude run code inside your running Renoise,
-look at your dialogs and reload your tool without you lifting a finger.
-
-Yes, the name is a joke. The tools you make with it don't have to be.
-
-Questions or ideas? There is a
-[thread on the Renoise forum](https://forum.renoise.com/t/reslop-a-template-to-build-claude-code-tools/79678).
-
-## What's in the box
+A tiny dancer for [Renoise](https://www.renoise.com). Press play and a little
+ASCII buddy gets down to your track. Press stop and it stands there, patiently,
+like it has nowhere better to be.
 
 ```
-<Id>.xrnx/            your tool: manifest.xml, main.lua, src/ (logic and dialog), dev/ (the bridge)
-scripts/renoise.py    one small Python script that does all the chores below
-justfile              short names for the chores, so you can type `just reload`
-definitions/          the Renoise API, annotated, for the type checker and for Claude
-docs/renoise/         the Renoise scripting guide, offline
-CLAUDE.md             the briefing Claude reads before touching anything
-.github/workflows/    checks on every push; a release with the .xrnx on every tag
+       .-----.
+      ( o   o )
+       '--v--'
+       .-|=|-.
+       | |=| |
+       o |=| o
+        .' '.
+       /     \
+      _|     |_
 ```
 
-The example tool adds *Tools → ASCII Dancer...* to Renoise's menu. Its dialog shows
-the song name, a live BPM read-out, a track count that follows the song, a text
-field that remembers what you type, and a button. It is small on purpose: it
-shows the patterns, then gets out of the way.
+**YouTube:** [demo video](https://youtu.be/DR_vuVzrXCU?si=mJkDQ02PSyiZ40UI) ·
+[short video](https://youtube.com/shorts/jV4Z7nRmsAs?si=SVgzwA76PNIR0Jqj)
 
-## Doing it by hand
+## Download
 
-If you would rather type the commands yourself, this is what the setup prompt
-does for you.
+Grab the latest `com.dac514.AsciiDancer.xrnx` from the
+[Releases page](https://github.com/dac514/asciidancer/releases) and drag it
+onto Renoise. Then open **Tools → ASCII Dancer...** (or bind
+*Global → Tools → Show ASCII Dancer* to a key) and hit play.
 
-Install four things: [just](https://github.com/casey/just) (runs the chores),
-[StyLua](https://github.com/JohnnyMorganz/StyLua) (formats Lua),
-[lua-language-server](https://github.com/LuaLS/lua-language-server) 3.13.6 or
-newer (checks Lua against the Renoise API), and Python 3.8 or newer (runs the
-script; no packages needed).
+## What it does, exactly
 
-- macOS: `brew install just stylua lua-language-server`
-- Windows: `winget install Casey.Just JohnnyMorganz.StyLua LuaLS.lua-language-server Python.Python.3.13`
-  (or work inside WSL and follow the Linux line)
-- Fedora, Ubuntu, WSL: `just` from your package manager, StyLua and
-  lua-language-server from their GitHub release archives, unpacked into `~/.local/bin`
+- **Dances to the song, not the clock.** Every frame is picked from the
+  playback position, so loops, jumps and tempo changes all land on the beat.
+- **Reads the room.** Moves are chosen bar by bar from where you are in the
+  song and how busy the pattern is. Sparse intro? A gentle groove. Wall of
+  notes? Arms up. A dense line triggers a jump.
+- **Squashes on the beat** and brightens with it, then eases back off. Organic,
+  not twitchy.
+- **Survives your BPM.** At 300 BPM it dances in half-time. At 40 it doubles
+  up. There is hysteresis so it never flip-flops, and a hard cap on how fast
+  frames may change, so it stays readable at any tempo. The status line tells
+  you which mode you're in.
+- **Never reflows.** Every frame is exactly the same size, so the window never
+  twitches, resizes or scrolls.
+- **Moves:** groove, sway, shuffle, twist, disco point, raise the roof, spin,
+  plus two accents (jump!, hands up). The caption names whatever it's doing.
 
-Then:
+No audio analysis is involved. Renoise doesn't expose audio levels to tools,
+so the dancer listens to the transport and the pattern data instead, which
+turns out to be plenty.
+
+## Hacking on it
+
+The dancer is plain Lua inside `com.dac514.AsciiDancer.xrnx/`:
 
 ```
-just doctor      # lists what is missing and where to get it
-just init com.yourname.ToolName "Tool Name" "Your Name [you@example.com]"
-just install     # Renoise copies the tool into its Tools folder and loads it
-just ping        # ok bridge at 127.0.0.1:18765 ...
+src/dancer_art.lua    the character: parts, poses, moves, accents (ASCII in long strings)
+src/dancer.lua        the brain: tempo folding, choreography, frame compositor, rate clamp
+src/song_probe.lua    what it reads from the song each tick
+src/dancer_view.lua   the dialog component and its timer
+tests/dancer_test.lua runs under plain luajit, no Renoise needed
 ```
 
-No `just` yet? Every recipe is a one-liner around the script, so
-`python3 scripts/renoise.py doctor` works just as well.
+Want to draw your own moves? Edit `dancer_art.lua`, then
+`just test` checks that every frame still fits the stage and
+`luajit tests/dancer_test.lua --show groove` prints a move so you can eyeball it.
 
-## Day to day
-
-```
-just check          # formatting + type check against the Renoise API
-just reload         # full reload: zip the tool and have Renoise reinstall it (about a second)
-just reload-soft    # quicker: swap in src/ without restarting the tool
-just eval 'return renoise.song().transport.bpm'
-just eval 'APP.show_dialog()' && just views
-just log            # prints and errors from inside the tool
-just screenshot     # PNG of the Renoise window and any open dialog, into dist/
-just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out)
-```
-
-## How Claude sees Renoise
-
-Renoise has no command line, and `print` only reaches its Scripting Terminal.
-So the kit ships a small **dev bridge** inside the tool (`dev/bridge.lua`): a
-TCP server on `127.0.0.1:18765`, living in the tool's own Lua state, loaded
-only while `dev/` exists and never included by `just package`. The script talks
-to it:
-
-- `eval` runs Lua with full access to the tool (`APP`, `renoise`, `io`), captures
-  `print` output and returns values as text.
-- `views` walks the dialog tree of every registered dialog, so layout and
-  state can be verified without a screenshot.
-- `reload` re-zips the tool and asks Renoise to reinstall it through the OSC
-  server, giving a fresh Lua state in about a second; `reload --soft` swaps in
-  `src/` in place instead.
-- `log` keeps the last 500 prints and errors; `check` parses the sources with
-  Renoise's own LuaJIT.
-
-Renoise's OSC server is used only as a trigger (`/renoise/evaluate` →
-`renoise.app():install_tool(zip)`), because it cannot send anything back.
-Screenshots are best effort per OS: on X11 every Renoise window is captured,
-so an open tool dialog lands in its own PNG; elsewhere you get the whole screen
-(`spectacle`, `gnome-screenshot`, `grim`, `screencapture`, PowerShell).
-
-## Platform notes
-
-| | Linux | macOS | Windows (native) | WSL (Linux tools, Windows Renoise) |
-|---|---|---|---|---|
-| Tools folder | `~/.config/Renoise/V*/Scripts/Tools` | `~/Library/Preferences/Renoise/V*/Scripts/Tools` | `%APPDATA%\Renoise\V*\Scripts\Tools` | found via `powershell.exe $env:APPDATA` |
-| `just install` | OSC, else symlink | OSC, else symlink | OSC, else copy (`--link` = junction) | OSC, else copy |
-| Bridge bind | 127.0.0.1 | 127.0.0.1 | 127.0.0.1 | `0.0.0.0` + token (NAT mode cannot reach the host's loopback) |
-| Screenshot | window or screen | screen | screen | screen via `powershell.exe` |
-
-WSL: `just install` writes `dev/bind` (`0.0.0.0`) and `dev/.token` so the bridge
-is reachable from the WSL network namespace and still refuses unauthenticated
-peers; the client tries `127.0.0.1`, the default gateway and the resolv.conf
-nameserver as hosts. With mirrored networking (`.wslconfig`), pass
-`--loopback` to keep everything on localhost. Paths handed to Renoise are
-converted with `wslpath -w`.
-
-Environment overrides: `RENOISE_PREFS_DIR`, `RENOISE_VERSION`, `RENOISE_HOST`,
-`RENOISE_DEV_PORT`, `RENOISE_OSC_PORT`.
+The dev tooling (`just check`, `just reload`, `just views`, `just screenshot`,
+and the dev bridge that lets a coding assistant poke at the running tool) comes
+from [ReSlop](https://github.com/dac514/reslop), the starter kit this project
+was built with. `CLAUDE.md` has the full briefing if you want to work on it
+with [Claude Code](https://claude.com/claude-code), and `just doctor` tells
+you what to install (just, StyLua, lua-language-server, Python 3).
 
 ## Credits and license
 
-MIT. Bundles the MIT-licensed
-[renoise/definitions](https://github.com/renoise/definitions) and guide pages from
-[renoise/xrnx](https://github.com/renoise/xrnx); see the `UPSTREAM.md` files for
-the exact commits.
+MIT. Built with [ReSlop](https://github.com/dac514/reslop). Bundles the
+MIT-licensed [renoise/definitions](https://github.com/renoise/definitions) and
+guide pages from [renoise/xrnx](https://github.com/renoise/xrnx); see the
+`UPSTREAM.md` files for the exact commits.
