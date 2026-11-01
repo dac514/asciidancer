@@ -43,7 +43,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq luajit
 
       - name: Unit tests
-        run: luajit tests/dancer_test.lua
+        run: python3 scripts/renoise.py test
 
       - name: Package
         run: python3 scripts/renoise.py package

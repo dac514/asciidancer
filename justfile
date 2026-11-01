@@ -30,9 +30,10 @@ typecheck:
 check: fmt-check typecheck
     -{{rn}} check
 
-# Unit-test the pure dancer modules with LuaJIT (no Renoise needed)
-test:
-    luajit tests/dancer_test.lua
+# Unit tests under LuaJIT, no Renoise needed: just test [FILE ...] [-- ARGS]
+# (e.g. just test tests/dancer_test.lua -- --show idle)
+test *ARGS:
+    {{rn}} test {{ARGS}}
 
 # Link (Linux/macOS) or copy (Windows/WSL) the tool into Renoise's Tools folder
 install *ARGS:

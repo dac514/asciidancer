@@ -27,7 +27,7 @@ first line; exit codes: 0 ok, 1 remote/Lua error, 2 usage, 3 cannot connect,
 |---|---|
 | `just doctor` | check stylua, lua-language-server, just, Renoise folders, the bridge |
 | `just check` | `stylua --check .` + `lua-language-server --check .` (+ Renoise's own parser via the bridge when reachable) |
-| `just test` | `luajit tests/dancer_test.lua`: unit tests for the pure dancer modules (no Renoise needed); `--show <move>` prints a move's frames |
+| `just test` | run `tests/*_test.lua` under plain LuaJIT with the bundle on `package.path`; no Renoise needed. `just test tests/dancer_test.lua -- --show <move>` prints a move's frames |
 | `just fmt` | format all Lua in place |
 | `just install` | install into Renoise through OSC `install_tool` (Renoise copies and loads the bundle); falls back to a symlink/copy that needs *Tools > Reload All Tools* once |
 | `just reload` | **full reload** (default): zip the bundle (with `dev/`) and `install_tool` it through OSC; fresh Lua state, new `boot_id`, about a second |
@@ -91,6 +91,14 @@ When asked to set the project up, do all of this, in order, and report at the en
    bridge does not answer, say exactly which of those is missing instead of guessing.
 5. `just ping` and `just song`, then tell the user what you can see (song name, BPM).
 
+## Updating from ReSlop
+
+This project was made from the [ReSlop](https://github.com/dac514/reslop) template (its first
+version, 2026-10-22). When asked to bring in kit fixes, read ReSlop's `UPGRADING.md` (main) and
+apply the entries not yet here. Diff each kit file before replacing it and merge project-specific
+changes; never rename this project's `<Id>.xrnx` folder or ids. Applied so far: 2026-11 (several
+tools in development at once).
+
 ## Directory map
 
 ```
@@ -113,7 +121,8 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 <Id>.xrnx/src/song_probe.lua  per-tick song reader: transport + note-ons on newly reached lines
 <Id>.xrnx/src/dancer_view.lua the dancer GUI component (canvas backdrop + mono text) and its timer
 tests/dancer_test.lua         luajit tests for the pure modules (`just test`)
-<Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua); never shipped
+tests/helper.lua              check/eq/fails/done for kit tests (home_port_test.lua)
+<Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua, home_port.lua); never shipped
 ```
 
 ## Hard constraints
@@ -182,6 +191,16 @@ tests/dancer_test.lua         luajit tests for the pure modules (`just test`)
   are not flagged.
 
 ## Renoise facts learned while building this kit
+
+- Several tools in development can be installed at once, each with its own bridge. Each bridge
+  listens on a **home port** from its tool id (`dev/home_port.lua`; `home_port()` in
+  `scripts/renoise.py` must compute the same number, `tests/home_port_test.lua` pins both;
+  AsciiDancer = 18912). `renoise.py` pings candidate ports and only uses the one whose `tool_id`
+  matches this project; the bridge refuses requests whose `tool` record names another tool.
+  `--port N` skips the check. Never "fix" a clash by uninstalling another tool.
+- A program started with `os.execute` inherits Renoise's open sockets, including every bridge's
+  listening port: while it runs, a reloaded tool cannot bind its port again. Programs a tool
+  launches should close inherited descriptors (or be started through the OS shell).
 
 - `print` goes only to Renoise's Scripting Terminal (not Log.txt, not stdout); the bridge
   captures it, so `just eval`/`just log` is the way to read it.
